@@ -72,6 +72,15 @@ func main() {
 		path := r.URL.Path
 
 		if len(path) > len("/api/tickets/") && path[len("/api/tickets/"):] != "" {
+			if len(path) > len("/api/tickets//cost") && path[len(path)-len("/cost"):] == "/cost" {
+				if r.Method != http.MethodGet {
+					http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+					return
+				}
+				h.GetTicketCostDetail(w, r)
+				return
+			}
+
 			if len(path) > len("/api/tickets//consumptions") && path[len(path)-len("/consumptions"):] == "/consumptions" {
 				switch r.Method {
 				case http.MethodPost:
@@ -139,6 +148,8 @@ func main() {
 	log.Printf("  POST   /api/tickets/{id}/consumptions - 为工单添加维修配件消耗记录")
 	log.Printf("  GET    /api/tickets/{id}/consumptions - 查询工单的配件消耗记录")
 	log.Printf("  POST   /api/tickets/{id}/close     - 关闭工单（支持批量录入配件消耗）")
+	log.Printf("  ===== 单次故障成本统计接口 =====")
+	log.Printf("  GET    /api/tickets/{id}/cost      - 统计单次故障零部件成本（分类汇总+占比）")
 	log.Printf("  ===== 物料统计接口 =====")
 	log.Printf("  GET    /api/stats/part-usage       - 配件使用统计（支持line_id, fault_type, start_date, end_date筛选）")
 

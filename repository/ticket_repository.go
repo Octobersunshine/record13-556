@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -454,4 +455,171 @@ func GetAllFaultTypes() []map[string]string {
 
 func GetAllPartCategories() []string {
 	return []string{"传动部件", "电气部件", "传感器", "过滤器", "液压元件", "气动元件", "密封件", "紧固件", "其他"}
+}
+
+func (r *TicketRepository) GetTicketCostDetail(ticketID string) (*model.TicketCostDetail, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	ticket, ok := r.tickets[ticketID]
+	if !ok {
+		return nil, errors.New("工单不存在")
+	}
+
+	consumptions := make([]model.PartConsumption, 0)
+	for _, c := range r.consumptions {
+		if c.TicketID == ticketID {
+			consumptions = append(consumptions, *c)
+		}
+	}
+
+	categoryMap := make(map[string]*model.CategoryCostBreakdown)
+	categoryCostMap := make(map[string]float64)
+	totalPartCount := 0
+	maxCost := 0.0
+	maxCostPartName := ""
+
+	for _, cons := range consumptions {
+		unit := ""
+		if part, ok := r.parts[cons.PartID]; ok {
+			unit = part.Unit
+		}
+
+		detail := model.PartConsumptionDetail{
+			ID:           cons.ID,
+			PartID:       cons.PartID,
+			PartName:     cons.PartName,
+			PartCode:     cons.PartCode,
+			PartCategory: cons.PartCategory,
+			Quantity:     cons.Quantity,
+			Unit:         unit,
+			UnitPrice:    cons.UnitPrice,
+			TotalPrice:   cons.TotalPrice,
+			Operator:     cons.Operator,
+			Remark:       cons.Remark,
+			CreatedAt:    cons.CreatedAt.Format("2006-01-02 15:04:05"),
+		}
+
+		cat := cons.PartCategory
+		if cat == "" {
+			cat = "未分类"
+		}
+
+		if categoryMap[cat] == nil {
+			categoryMap[cat] = &model.CategoryCostBreakdown{
+				Category: cat,
+				Items:    make([]model.PartConsumptionDetail, 0),
+			}
+		}
+		categoryMap[cat].TotalAmount += cons.TotalPrice
+		categoryMap[cat].TotalItems++
+		categoryMap[cat].Items = append(categoryMap[cat].Items, detail)
+
+		categoryCostMap[cat] += cons.TotalPrice
+		totalPartCount += cons.Quantity
+
+		if cons.TotalPrice > maxCost {
+			maxCost = cons.TotalPrice
+			maxCostPartName = cons.PartName
+		}
+	}
+
+	categoryBreakdown := make([]model.CategoryCostBreakdown, 0, len(categoryMap))
+	for _, cb := range categoryMap {
+		categoryBreakdown = append(categoryBreakdown, *cb)
+	}
+
+	totalCost := ticket.TotalMaterialCost
+	percentagePerCategory := make(map[string]float64)
+	if totalCost > 0 {
+		for cat, cost := range categoryCostMap {
+			percentagePerCategory[cat] = roundFloat((cost/totalCost)*100, 2)
+		}
+	}
+
+	avgItemCost := 0.0
+	if len(consumptions) > 0 {
+		avgItemCost = roundFloat(totalCost/float64(len(consumptions)), 2)
+	}
+
+	var repairDuration string
+	if ticket.ClosedAt != nil {
+		dur := ticket.ClosedAt.Sub(ticket.CreatedAt)
+		hours := int(dur.Hours())
+		minutes := int(dur.Minutes()) % 60
+		days := hours / 24
+		remainHours := hours % 24
+		if days > 0 {
+			repairDuration = fmt.Sprintf("%d天%d小时%d分钟", days, remainHours, minutes)
+		} else if hours > 0 {
+			repairDuration = fmt.Sprintf("%d小时%d分钟", hours, minutes)
+		} else {
+			repairDuration = fmt.Sprintf("%d分钟", minutes)
+		}
+	} else if ticket.ResolvedAt != nil {
+		dur := ticket.ResolvedAt.Sub(ticket.CreatedAt)
+		hours := int(dur.Hours())
+		minutes := int(dur.Minutes()) % 60
+		days := hours / 24
+		remainHours := hours % 24
+		if days > 0 {
+			repairDuration = fmt.Sprintf("%d天%d小时%d分钟", days, remainHours, minutes)
+		} else if hours > 0 {
+			repairDuration = fmt.Sprintf("%d小时%d分钟", hours, minutes)
+		} else {
+			repairDuration = fmt.Sprintf("%d分钟", minutes)
+		}
+	} else {
+		dur := time.Since(ticket.CreatedAt)
+		hours := int(dur.Hours())
+		minutes := int(dur.Minutes()) % 60
+		days := hours / 24
+		remainHours := hours % 24
+		if days > 0 {
+			repairDuration = fmt.Sprintf("已进行%d天%d小时", days, remainHours)
+		} else if hours > 0 {
+			repairDuration = fmt.Sprintf("已进行%d小时%d分钟", hours, minutes)
+		} else {
+			repairDuration = fmt.Sprintf("已进行%d分钟", minutes)
+		}
+	}
+
+	var closedAtPtr *string
+	if ticket.ClosedAt != nil {
+		ca := ticket.ClosedAt.Format("2006-01-02 15:04:05")
+		closedAtPtr = &ca
+	}
+
+	detail := &model.TicketCostDetail{
+		TicketID:         ticket.ID,
+		TicketTitle:      ticket.Title,
+		DeviceID:         ticket.DeviceID,
+		DeviceName:       ticket.DeviceName,
+		LineID:           ticket.LineID,
+		LineName:         ticket.LineName,
+		FaultType:        ticket.FaultType,
+		Status:           ticket.Status,
+		Handler:          ticket.Handler,
+		TotalItemCount:   len(consumptions),
+		TotalPartCount:   totalPartCount,
+		TotalCost:        roundFloat(totalCost, 2),
+		CategoryBreakdown: categoryBreakdown,
+		CostPerCategory:  categoryCostMap,
+		PercentagePerCategory: percentagePerCategory,
+		AvgItemCost:      avgItemCost,
+		MaxSingleItemCost: roundFloat(maxCost, 2),
+		MaxCostPartName:  maxCostPartName,
+		RepairDuration:   repairDuration,
+		ClosedAt:         closedAtPtr,
+	}
+
+	return detail, nil
+}
+
+func roundFloat(val float64, precision int) float64 {
+	ratio := 1.0
+	for i := 0; i < precision; i++ {
+		ratio *= 10
+	}
+	return float64(int(val*ratio+0.5)) / ratio
 }

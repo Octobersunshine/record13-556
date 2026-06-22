@@ -277,3 +277,21 @@ func (h *TicketHandler) GetPartUsageStats(w http.ResponseWriter, r *http.Request
 	stats := h.repo.GetPartUsageStats(lineID, faultType, startDate, endDate)
 	successResponse(w, stats)
 }
+
+func (h *TicketHandler) GetTicketCostDetail(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	id := strings.TrimPrefix(path, "/api/tickets/")
+	id = strings.TrimSuffix(id, "/cost")
+	if id == "" {
+		errorResponse(w, http.StatusBadRequest, "工单ID不能为空")
+		return
+	}
+
+	detail, err := h.repo.GetTicketCostDetail(id)
+	if err != nil {
+		errorResponse(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	successResponse(w, detail)
+}

@@ -64,6 +64,51 @@ type PartUsageStats struct {
 	UsageCount   int     `json:"usage_count"`
 }
 
+type CategoryCostBreakdown struct {
+	Category    string                 `json:"category"`
+	TotalAmount float64                `json:"total_amount"`
+	TotalItems  int                    `json:"total_items"`
+	Items       []PartConsumptionDetail `json:"items"`
+}
+
+type PartConsumptionDetail struct {
+	ID           string  `json:"id"`
+	PartID       string  `json:"part_id"`
+	PartName     string  `json:"part_name"`
+	PartCode     string  `json:"part_code"`
+	PartCategory string  `json:"part_category"`
+	Quantity     int     `json:"quantity"`
+	Unit         string  `json:"unit"`
+	UnitPrice    float64 `json:"unit_price"`
+	TotalPrice   float64 `json:"total_price"`
+	Operator     string  `json:"operator"`
+	Remark       string  `json:"remark"`
+	CreatedAt    string  `json:"created_at"`
+}
+
+type TicketCostDetail struct {
+	TicketID         string               `json:"ticket_id"`
+	TicketTitle      string               `json:"ticket_title"`
+	DeviceID         string               `json:"device_id"`
+	DeviceName       string               `json:"device_name"`
+	LineID           string               `json:"line_id"`
+	LineName         string               `json:"line_name"`
+	FaultType        FaultType            `json:"fault_type"`
+	Status           TicketStatus         `json:"status"`
+	Handler          string               `json:"handler"`
+	TotalItemCount   int                  `json:"total_item_count"`
+	TotalPartCount   int                  `json:"total_part_count"`
+	TotalCost        float64              `json:"total_cost"`
+	CategoryBreakdown []CategoryCostBreakdown `json:"category_breakdown"`
+	CostPerCategory  map[string]float64   `json:"cost_per_category"`
+	PercentagePerCategory map[string]float64 `json:"percentage_per_category"`
+	AvgItemCost      float64              `json:"avg_item_cost"`
+	MaxSingleItemCost float64             `json:"max_single_item_cost"`
+	MaxCostPartName  string               `json:"max_cost_part_name"`
+	RepairDuration   string               `json:"repair_duration"`
+	ClosedAt         *string              `json:"closed_at,omitempty"`
+}
+
 type DeviceFaultTicket struct {
 	ID                string            `json:"id"`
 	Title             string            `json:"title"`
