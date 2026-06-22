@@ -28,24 +28,63 @@ type ProductionLine struct {
 	Code string `json:"code"`
 }
 
+type Part struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Code      string  `json:"code"`
+	Category  string  `json:"category"`
+	Unit      string  `json:"unit"`
+	UnitPrice float64 `json:"unit_price"`
+	Stock     int     `json:"stock"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type PartConsumption struct {
+	ID           string    `json:"id"`
+	TicketID     string    `json:"ticket_id"`
+	PartID       string    `json:"part_id"`
+	PartName     string    `json:"part_name"`
+	PartCode     string    `json:"part_code"`
+	PartCategory string    `json:"part_category"`
+	Quantity     int       `json:"quantity"`
+	UnitPrice    float64   `json:"unit_price"`
+	TotalPrice   float64   `json:"total_price"`
+	Operator     string    `json:"operator"`
+	Remark       string    `json:"remark"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+type PartUsageStats struct {
+	PartID       string  `json:"part_id"`
+	PartName     string  `json:"part_name"`
+	PartCode     string  `json:"part_code"`
+	PartCategory string  `json:"part_category"`
+	TotalUsed    int     `json:"total_used"`
+	TotalAmount  float64 `json:"total_amount"`
+	UsageCount   int     `json:"usage_count"`
+}
+
 type DeviceFaultTicket struct {
-	ID          string       `json:"id"`
-	Title       string       `json:"title"`
-	Description string       `json:"description"`
-	DeviceID    string       `json:"device_id"`
-	DeviceName  string       `json:"device_name"`
-	LineID      string       `json:"line_id"`
-	LineCode    string       `json:"line_code"`
-	LineName    string       `json:"line_name"`
-	FaultType   FaultType    `json:"fault_type"`
-	Status      TicketStatus `json:"status"`
-	Priority    int          `json:"priority"`
-	Reporter    string       `json:"reporter"`
-	Handler     string       `json:"handler,omitempty"`
-	CreatedAt   time.Time    `json:"created_at"`
-	UpdatedAt   time.Time    `json:"updated_at"`
-	ResolvedAt  *time.Time   `json:"resolved_at,omitempty"`
-	Tags        []string     `json:"tags,omitempty"`
+	ID                string            `json:"id"`
+	Title             string            `json:"title"`
+	Description       string            `json:"description"`
+	DeviceID          string            `json:"device_id"`
+	DeviceName        string            `json:"device_name"`
+	LineID            string            `json:"line_id"`
+	LineCode          string            `json:"line_code"`
+	LineName          string            `json:"line_name"`
+	FaultType         FaultType         `json:"fault_type"`
+	Status            TicketStatus      `json:"status"`
+	Priority          int               `json:"priority"`
+	Reporter          string            `json:"reporter"`
+	Handler           string            `json:"handler,omitempty"`
+	CreatedAt         time.Time         `json:"created_at"`
+	UpdatedAt         time.Time         `json:"updated_at"`
+	ResolvedAt        *time.Time        `json:"resolved_at,omitempty"`
+	ClosedAt          *time.Time        `json:"closed_at,omitempty"`
+	Tags              []string          `json:"tags,omitempty"`
+	PartConsumptions  []PartConsumption `json:"part_consumptions,omitempty"`
+	TotalMaterialCost float64           `json:"total_material_cost"`
 }
 
 type CreateTicketRequest struct {
@@ -63,6 +102,29 @@ type CreateTicketRequest struct {
 type UpdateTicketStatusRequest struct {
 	Status  TicketStatus `json:"status" binding:"required"`
 	Handler string       `json:"handler"`
+}
+
+type CreatePartRequest struct {
+	Name      string  `json:"name" binding:"required"`
+	Code      string  `json:"code" binding:"required"`
+	Category  string  `json:"category"`
+	Unit      string  `json:"unit" binding:"required"`
+	UnitPrice float64 `json:"unit_price"`
+	Stock     int     `json:"stock"`
+}
+
+type AddConsumptionRequest struct {
+	PartID   string `json:"part_id" binding:"required"`
+	Quantity int    `json:"quantity" binding:"required,min=1"`
+	Operator string `json:"operator" binding:"required"`
+	Remark   string `json:"remark"`
+}
+
+type CloseTicketRequest struct {
+	Status       TicketStatus             `json:"status" binding:"required"`
+	Handler      string                   `json:"handler"`
+	Consumptions []AddConsumptionRequest  `json:"consumptions"`
+	Remark       string                   `json:"remark"`
 }
 
 type ApiResponse struct {

@@ -148,3 +148,132 @@ func (h *TicketHandler) DeleteTicket(w http.ResponseWriter, r *http.Request) {
 
 	successResponse(w, nil)
 }
+
+func (h *TicketHandler) GetPartCategories(w http.ResponseWriter, r *http.Request) {
+	categories := repository.GetAllPartCategories()
+	successResponse(w, categories)
+}
+
+func (h *TicketHandler) CreatePart(w http.ResponseWriter, r *http.Request) {
+	var req model.CreatePartRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		errorResponse(w, http.StatusBadRequest, "请求参数解析失败: "+err.Error())
+		return
+	}
+
+	if strings.TrimSpace(req.Name) == "" {
+		errorResponse(w, http.StatusBadRequest, "配件名称不能为空")
+		return
+	}
+	if strings.TrimSpace(req.Code) == "" {
+		errorResponse(w, http.StatusBadRequest, "配件编码不能为空")
+		return
+	}
+	if strings.TrimSpace(req.Unit) == "" {
+		errorResponse(w, http.StatusBadRequest, "计量单位不能为空")
+		return
+	}
+
+	part, err := h.repo.CreatePart(&req)
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	successResponse(w, part)
+}
+
+func (h *TicketHandler) GetParts(w http.ResponseWriter, r *http.Request) {
+	category := r.URL.Query().Get("category")
+	parts := h.repo.GetAllParts(category)
+	successResponse(w, parts)
+}
+
+func (h *TicketHandler) AddConsumption(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	id := strings.TrimPrefix(path, "/api/tickets/")
+	id = strings.TrimSuffix(id, "/consumptions")
+	if id == "" {
+		errorResponse(w, http.StatusBadRequest, "工单ID不能为空")
+		return
+	}
+
+	var req model.AddConsumptionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		errorResponse(w, http.StatusBadRequest, "请求参数解析失败: "+err.Error())
+		return
+	}
+
+	if strings.TrimSpace(req.PartID) == "" {
+		errorResponse(w, http.StatusBadRequest, "配件ID不能为空")
+		return
+	}
+	if req.Quantity <= 0 {
+		errorResponse(w, http.StatusBadRequest, "消耗数量必须大于0")
+		return
+	}
+	if strings.TrimSpace(req.Operator) == "" {
+		errorResponse(w, http.StatusBadRequest, "操作人不能为空")
+		return
+	}
+
+	consumption, err := h.repo.AddConsumption(id, &req)
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	successResponse(w, consumption)
+}
+
+func (h *TicketHandler) GetTicketConsumptions(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	id := strings.TrimPrefix(path, "/api/tickets/")
+	id = strings.TrimSuffix(id, "/consumptions")
+	if id == "" {
+		errorResponse(w, http.StatusBadRequest, "工单ID不能为空")
+		return
+	}
+
+	consumptions := h.repo.GetTicketConsumptions(id)
+	successResponse(w, consumptions)
+}
+
+func (h *TicketHandler) CloseTicket(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	id := strings.TrimPrefix(path, "/api/tickets/")
+	id = strings.TrimSuffix(id, "/close")
+	if id == "" {
+		errorResponse(w, http.StatusBadRequest, "工单ID不能为空")
+		return
+	}
+
+	var req model.CloseTicketRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		errorResponse(w, http.StatusBadRequest, "请求参数解析失败: "+err.Error())
+		return
+	}
+
+	if req.Status == "" {
+		errorResponse(w, http.StatusBadRequest, "工单状态不能为空")
+		return
+	}
+
+	ticket, err := h.repo.CloseTicketWithConsumptions(id, &req)
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	successResponse(w, ticket)
+}
+
+func (h *TicketHandler) GetPartUsageStats(w http.ResponseWriter, r *http.Request) {
+	lineID := r.URL.Query().Get("line_id")
+	faultType := model.FaultType(r.URL.Query().Get("fault_type"))
+	startDate := r.URL.Query().Get("start_date")
+	endDate := r.URL.Query().Get("end_date")
+
+	stats := h.repo.GetPartUsageStats(lineID, faultType, startDate, endDate)
+	successResponse(w, stats)
+}
